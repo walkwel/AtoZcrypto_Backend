@@ -52,6 +52,29 @@ def get_current_claims(
 CurrentUser = Annotated[TokenClaims, Depends(get_current_claims)]
 
 
+def get_optional_claims(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> TokenClaims | None:
+    """Identity when it is offered, anonymity when it is not.
+
+    For endpoints that everyone may call but that are richer for a known user —
+    feedback is linked to an account when one is signed in. A malformed or
+    expired token is treated as absent rather than rejected: the caller was not
+    required to prove anything, so a bad optional credential must not turn a
+    valid request into a 401.
+    """
+    if credentials is None:
+        return None
+    try:
+        return decode_access_token(credentials.credentials, settings=settings)
+    except InvalidTokenError:
+        return None
+
+
+OptionalUser = Annotated[TokenClaims | None, Depends(get_optional_claims)]
+
+
 def get_current_admin(claims: CurrentUser) -> TokenClaims:
     if claims.role != UserRole.ADMIN:
         raise ForbiddenError("This action requires an administrator account.")

@@ -78,7 +78,7 @@ def _safe_validation_details(exc: RequestValidationError) -> list[dict[str, str]
     ]
 
 
-def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
+def error_response(status_code: int, code: str, message: str) -> JSONResponse:
     # RFC 6750: a 401 from a bearer-token API must advertise the scheme.
     is_unauthorized = status_code == status.HTTP_401_UNAUTHORIZED
     headers = {"WWW-Authenticate": "Bearer"} if is_unauthorized else None
@@ -94,7 +94,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
         if exc.status_code >= 500:
             logger.error("application error", extra={"code": exc.code, "detail": exc.message})
-        return _error_response(exc.status_code, exc.code, exc.message)
+        return error_response(exc.status_code, exc.code, exc.message)
 
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(
@@ -111,10 +111,18 @@ def register_exception_handlers(app: FastAPI) -> None:
             },
         )
 
+    # Fallback only: ErrorHandlingMiddleware (app/core/middleware.py) catches
+    # unhandled exceptions from routes and normally handles this response
+    # itself. Starlette runs base-Exception handlers via ServerErrorMiddleware,
+    # which sits *outside* CORSMiddleware, so a response built here never gets
+    # CORS headers — the browser reports a misleading "blocked by CORS policy"
+    # instead of the real error. This stays registered only to catch the rare
+    # case of an exception raised by a middleware itself, above where
+    # ErrorHandlingMiddleware can see it.
     @app.exception_handler(Exception)
     async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
         logger.exception("unhandled error", extra={"path": request.url.path})
-        return _error_response(
+        return error_response(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "internal_error",
             "An unexpected error occurred.",

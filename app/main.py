@@ -14,7 +14,7 @@ from app.api import api_router
 from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import setup_logging
-from app.core.middleware import RequestContextMiddleware
+from app.core.middleware import ErrorHandlingMiddleware, RequestContextMiddleware
 from app.core.redis import init_cache
 from app.core.scheduler import PeriodicScheduler
 from app.integrations.http_client import close_http_client, init_http_client
@@ -61,6 +61,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # ErrorHandlingMiddleware must be added before CORSMiddleware: Starlette
+    # applies middleware innermost-first in add order, so this keeps it inside
+    # CORSMiddleware and lets its error responses get CORS headers too.
+    app.add_middleware(ErrorHandlingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

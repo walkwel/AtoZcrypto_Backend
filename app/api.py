@@ -4,7 +4,9 @@ from fastapi import APIRouter
 
 from app.modules.auth.router import router as auth_router
 from app.modules.blog.router import router as blog_router
+from app.modules.courses.router import router as courses_router
 from app.modules.dashboard.router import router as dashboard_router
+from app.modules.feedback.router import router as feedback_router
 from app.modules.health.router import router as health_router
 from app.modules.market.router import router as market_router
 from app.modules.news.router import router as news_router
@@ -18,4 +20,6 @@ api_router.include_router(dashboard_router)
 api_router.include_router(news_router)
 api_router.include_router(market_router)
 api_router.include_router(blog_router)
+api_router.include_router(courses_router)
 api_router.include_router(search_router)
+api_router.include_router(feedback_router)
